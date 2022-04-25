@@ -1,105 +1,146 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Paper from '@material-ui/core/Paper';
-import Button from '@material-ui/core/Button';
-import Grid from '@material-ui/core/Grid';
-import TextField from '@material-ui/core/TextField';
-import Typography from '@material-ui/core/Typography';
-import Skeleton from '@material-ui/core/Skeleton';
+import { useState, useCallback, useEffect, useRef } from "react"; // https://reactjs.org/docs/hooks-intro.html
+import ReactDOM from "react-dom";
 
-const publicURL = 'https://swe432tomcat.herokuapp.com';
-const getLocationUrlData = () => {
-  return {
-      url:publicURL,
-      hash: `${window.location.hash}`
-  };
-};
+const numberOnly = (value, fallbackValue) =>
+  isNaN(value) ? fallbackValue : value;
+// function numberOnly(value, fallbackValue) {
+//   if (isNaN(value)) {
+//     return fallbackValue;
+//   } else {
+//     return value;
+//   }
+// }
 
-const servicePath ='/echo';
+function TwoButtons(props) {
+  const { title } = props; // const title = props.title;
+  const [firstValue, setFirstValue] = useState(""); // const stateAndSetter= useState(""); const firstValue = stateAndSetter[0], setFirstValue= stateAndSetter[1];
+  const [secondValue, setSecondValue] = useState("");
+  const [result, setResult] = useState("");
+  const [disableOperations, setDisableOperations] = useState(true);
 
-function Fetcher(props) {
-    const { url, value} = props;
-    const [clicks, setClicks] = useState(0);
-    const [response, setResponse] = useState(null);
-    const [inputValue, setInputValue] = useState("");
-    const body = `input=${inputValue}&value=${value}`;
-
-    const  fetchData= useCallback(async()=>{
-      const res = await fetch(url,
-        {
-          method: 'POST', // *GET, POST, PUT, DELETE, etc.
-          mode: 'cors', // no-cors, *cors, same-origin
-          cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-          //credentials: 'same-origin', // include, *same-origin, omit
-          headers: {
-            // 'Content-Type': 'application/json'
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          //redirect: 'follow', // manual, *follow, error
-          //referrerPolicy: 'no-referrer', // no-referrer, *client
-          body  // body data type must match "Content-Type" header
-        }
-      );
-      const json = await res.json();
-      setResponse(json);
+  const handleFirstValueChange = useCallback(
+    (event) => {
+      // function (event){
+      setFirstValue((currentFirstValue) => {
+        const nextFirstValue = event.target.value;
+        return numberOnly(nextFirstValue, currentFirstValue);
+      });
     },
-     [url, body]
-   );
+    [] // no need to include dependency setFirstValue: setters do not mutate
+  );
 
-    useEffect( ()=> {
-      setResponse(null);
-      fetchData().catch(e=>{console.log(e)});
-    }, [fetchData]);
+  const handleSecondValueChange = useCallback(
+    (event) => {
+      setSecondValue(event.target.value);
+    },
+    [] // no need to include dependency setSecondValue: setters do not mutate
+  );
 
-    const doSomething = function (event) {
-        console.log(event.currentTarget.getAttribute('data-something'));
-        setClicks(clicks + 1);
-    }
-    const handleChange = (event) => {
-      setInputValue(event.target.value);
-    };
+  const handleAddChange = useCallback(
+    (event) => {
+      event.preventDefault(); // prevents form submit action
+      setResult(+firstValue + +secondValue); // setResult(parseFloat(firstValue) + parseFloat(secondValue))
+    },
+    [firstValue, secondValue, setResult]
+  );
 
+  const handleSubstractChange = useCallback(
+    (event) => {
+      event.preventDefault(); // prevents form submit action
+      setResult(+firstValue - +secondValue);
+    },
+    [firstValue, secondValue, setResult]
+  );
 
-    return (
-        <Grid
-        container
-        direction="row"
-        justify="center"
-        alignItems="center"
-        spacing={2}
+  const handleResetChange = useCallback(
+    (event) => {
+      event.preventDefault(); // prevents form submit action
+      setFirstValue("");
+      setSecondValue("");
+      setResult("");
+    },
+    [] // no need to include dependencies setFirstValue, setSecondValue, or setResult: setters do not mutate
+  );
+
+  const focusedElementRef = useRef();
+
+  useEffect(() => {
+    // focusedElementRef.current.focus();
+  }, []);
+
+  useEffect(
+    () => {
+      let nextDisableOperations = false;
+      if (isNaN(firstValue) || isNaN(secondValue)) {
+        nextDisableOperations = true;
+      }
+
+      disableOperations !== nextDisableOperations &&
+        setDisableOperations(nextDisableOperations);
+    },
+    [disableOperations, firstValue, secondValue] // need to include firstValue and secondValue: values do mutate
+  );
+
+  return (
+    <div>
+      <p>{title}</p>
+      <form
+        method="post"
+        action="https://cs.gmu.edu:8443/offutt/servlet/formHandler"
+      >
+        <p>
+          First Value:
+          <input
+            ref={focusedElementRef}
+            name="firstValue"
+            value={firstValue}
+            onChange={handleFirstValueChange}
+            placeholder="0"
+          />
+        </p>
+        <p>
+          Second Value:
+          <input
+            name="secondValue"
+            value={secondValue}
+            onChange={handleSecondValueChange}
+            placeholder="0"
+          />
+        </p>
+        <p>
+          Result: <input value={result} readOnly placeholder="0" />
+        </p>
+        <button
+          type="submit"
+          name="operation"
+          value="add"
+          disabled={disableOperations}
+          onClick={handleAddChange}
         >
-          <Grid item xs>
-            <Typography variant="h6">submits: {clicks}</Typography>
-          </Grid>
-            <Grid item xs>
-              <TextField
-              label="Type something"
-              helperText="This will be echo echo by the server"
-              value={inputValue} onChange={handleChange} />
-            </Grid>
-            <Grid item xs>
-              <Button onClick={doSomething} variant="contained" color="primary" data-something="submit">
-                  submit</Button>
-            </Grid>
-            <Grid item xs>
-              <Paper elevation={1} style={
-                {height:200, width:200, wordBreak: "break-all", padding:4}
-              } >
-                {response?JSON.stringify(response):
-                (<React.Fragment>
-                <Skeleton variant="text" />
-                <Skeleton variant="circle" width={40} height={40} />
-                <Skeleton variant="rect" width={200} height={118} />
-                </React.Fragment>)}
-                </Paper>
-              </Grid>
-        </Grid>
-
-    );
+          Add
+        </button>
+        <button
+          type="submit"
+          name="operation"
+          value="sub"
+          onClick={handleSubstractChange}
+        >
+          Substract
+        </button>
+        <button onClick={handleResetChange}>Reset</button>
+      </form>
+    </div>
+  );
 }
 
+ReactDOM.render(
+  <TwoButtons
+    title={
+      "Assignment 8 Syed Azhar SWE 432"
+    }
+  />,
+  document.querySelector("#root")
+);
 
-export default function FetcherControlled(props) {
-  const url = `${getLocationUrlData().url}${servicePath}`;
-  
-  return  <Fetcher value={"someValue"} url={url}/>;
-}
+// If you got here, please check the Material UI version of this example:
+// https://codesandbox.io/s/swe-432-react-two-buttons-example-mui-yohyi
